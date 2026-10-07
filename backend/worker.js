@@ -110,22 +110,29 @@ function extractLinks(html, baseUrl) {
 }
 
 async function fetchHtml(url) {
-  const now = Date.now();
-  const hit = memoryCache.get(url);
-  if (hit && now - hit.at < CACHE_TTL * 1000) return hit.html;
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 10000);
-  try {
     const response = await fetch(url, {
-      signal: controller.signal,
-      redirect: 'follow',
-      cf: { cacheTtl: CACHE_TTL, cacheEverything: true },
-      headers: {
-        'user-agent': 'GTA5RP-Legal-Helper/3.4 (+live forum reader)',
-        accept: 'text/html,application/xhtml+xml',
-        'accept-language': 'ru-RU,ru;q=0.9,en;q=0.8'
-      }
+        method: "GET",
+        headers: {
+            "User-Agent":
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36",
+            "Accept":
+                "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+            "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache"
+        },
+        redirect: "follow"
+    });
+
+    if (!response.ok) {
+        const body = await response.text().catch(() => "");
+        throw new Error(
+            `HTTP ${response.status} при запросе ${url}${body ? `: ${body.slice(0, 300)}` : ""}`
+        );
+    }
+
+    return await response.text();
+}
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const html = (await response.text()).slice(0, 1000000);
@@ -137,7 +144,28 @@ async function fetchHtml(url) {
 }
 
 async function fetchText(url) {
-  return htmlToText(await fetchHtml(url));
+    const response = await fetch(url, {
+        method: "GET",
+        headers: {
+            "User-Agent":
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36",
+            "Accept":
+                "text/plain,text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache"
+        },
+        redirect: "follow"
+    });
+
+    if (!response.ok) {
+        const body = await response.text().catch(() => "");
+        throw new Error(
+            `HTTP ${response.status} при запросе ${url}${body ? `: ${body.slice(0, 300)}` : ""}`
+        );
+    }
+
+    return await response.text();
 }
 
 function scoreText(text, question) {
