@@ -12,14 +12,15 @@ const cors = {
   'access-control-max-age': '86400',
 };
 
-const json = (data, status = 200) =>
-  new Response(JSON.stringify(data), {
+function json(data, status = 200) {
+  return new Response(JSON.stringify(data), {
     status,
     headers: {
       'content-type': 'application/json;charset=utf-8',
       ...cors,
     },
   });
+}
 
 const CATALOG = {
   GTA5RP: {
@@ -84,6 +85,17 @@ const CATALOG = {
       'Советский · #6',
       'Центральный · #7',
     ],
+  },
+};
+
+const GTA_SERVER_CATEGORIES = {
+  Richman: {
+    rules:
+      'https://forum.gta5rp.com/threads/pravila-servera-richman.1794719/',
+    government:
+      'https://forum.gta5rp.com/forums/government.490/',
+    laws:
+      'https://forum.gta5rp.com/forums/zakonodatel-naya-baza.1268/',
   },
 };
 
@@ -160,7 +172,7 @@ function extractLinks(html, baseUrl) {
         });
       }
     } catch {
-      // Ignore malformed links.
+      // ignore
     }
   }
 
@@ -216,8 +228,90 @@ async function fetchHtml(url) {
   return html;
 }
 
-async function fetchText(url) {
-  return fetchHtml(url);
+function uniqueItems(items) {
+  const seen = new Set();
+
+  return items.filter((item) => {
+    if (!item?.url || seen.has(item.url)) {
+      return false;
+    }
+
+    seen.add(item.url);
+    return true;
+  });
+}
+
+function getArticleNumbers(question) {
+  const text = String(question || '');
+
+  const numbers = new Set();
+
+  const patterns = [
+    /(?:статья|статьи|статью|ст\.?)\s*(\d+(?:\.\d+)?)/giu,
+    /\b(\d+\.\d+)\b/g,
+  ];
+
+  for (const pattern of patterns) {
+    let match;
+
+    while ((match = pattern.exec(text))) {
+      if (match[1]) {
+        numbers.add(match[1]);
+      }
+    }
+  }
+
+  return [...numbers];
+}
+
+function extractArticleContext(text, question) {
+  const articles = getArticleNumbers(question);
+
+  if (!articles.length) {
+    return '';
+  }
+
+  const source = String(text || '');
+
+  for (const article of articles) {
+    const escaped = article.replace('.', '\\.');
+
+    const regex = new RegExp(
+      `Статья\\s+${escaped}(?:\\s|\\.|\\:|\\-|\\(|$)`,
+      'iu'
+    );
+
+    const match = regex.exec(source);
+
+    if (!match) continue;
+
+    const start = match.index;
+
+    // Берём достаточно большой участок после найденной статьи,
+    // чтобы вместить части статьи и её наказание.
+    const end = Math.min(
+      source.length,
+      start + 7000
+    );
+
+    let fragment = source.slice(start, end);
+
+    // Если встретилась следующая статья — обрезаем перед ней.
+    const nextArticle = fragment.search(
+      new RegExp(
+        `\\sСтатья\\s+\\d+(?:\\.\\d+)?[\\s\\.:\\-\\(]`,
+        'iu'
+      )
+    );
+
+    if (nextArticle > 200) {
+      fragment = fragment.slice(0, nextArticle);
+    }
+
+    return fragment.trim();
+  }
+
+  return '';
 }
 
 function scoreText(text, question) {
@@ -249,26 +343,6 @@ function scoreText(text, question) {
   return score;
 }
 
-/*
- * Актуальные разделы Richman.
- *
- * Форум показывает:
- * Сервер Richman
- *   Государственные организации
- *     Government
- *       Законодательная база
- */
-const GTA_SERVER_CATEGORIES = {
-  Richman: {
-    rules:
-      'https://forum.gta5rp.com/threads/pravila-servera-richman.1794719/',
-    government:
-      'https://forum.gta5rp.com/forums/government.490/',
-    laws:
-      'https://forum.gta5rp.com/forums/zakonodatel-naya-baza.1268/',
-  },
-};
-
 async function discoverGtaServer(project, server, mode) {
   if (project !== 'GTA5RP') {
     return discoverGeneric(
@@ -280,11 +354,6 @@ async function discoverGtaServer(project, server, mode) {
 
   const serverName = normalizeServer(server);
 
-  /*
-   * Для Richman используем официальный раздел напрямую.
-   * Это намного надёжнее, чем пытаться найти его
-   * через общий индекс правил проекта.
-   */
   if (serverName === 'Richman') {
     if (mode === 'laws') {
       return {
@@ -311,10 +380,9 @@ async function discoverGtaServer(project, server, mode) {
     };
   }
 
-  /*
-   * Для остальных серверов сохраняем автоматический поиск.
-   */
-  const indexHtml = await fetchHtml(CATALOG.GTA5RP.rulesIndex);
+  const indexHtml = await fetchHtml(
+    CATALOG.GTA5RP.rulesIndex
+  );
 
   const links = extractLinks(
     indexHtml,
@@ -328,8 +396,10 @@ async function discoverGtaServer(project, server, mode) {
 
     return (
       title.includes(`правила сервера ${serverLower}`) ||
-      (title.includes(serverLower) &&
-        item.url.includes('/threads/'))
+      (
+        title.includes(serverLower) &&
+        item.url.includes('/threads/')
+      )
     );
   });
 
@@ -337,7 +407,8 @@ async function discoverGtaServer(project, server, mode) {
     return {
       serverName,
       roots: [],
-      note: `Не найден официальный раздел сервера «${serverName}».`,
+      note:
+        `Не найден официальный раздел сервера «${serverName}».`,
     };
   }
 
@@ -418,7 +489,10 @@ async function discoverGeneric(cfg, serverName, mode) {
     .filter(
       (item) =>
         terms.test(item.title) &&
-        item.url.includes('/threads/')
+        (
+          item.url.includes('/threads/') ||
+          item.url.includes('/forums/')
+        )
     )
     .slice(0, 12);
 
@@ -463,7 +537,7 @@ async function collectThreads(
         item.url.includes('/threads/') &&
         pattern.test(item.title)
     )
-    .slice(0, 20);
+    .slice(0, 30);
 
   return {
     serverName,
@@ -476,19 +550,6 @@ async function collectThreads(
     ]),
     note: null,
   };
-}
-
-function uniqueItems(items) {
-  const seen = new Set();
-
-  return items.filter((item) => {
-    if (!item?.url || seen.has(item.url)) {
-      return false;
-    }
-
-    seen.add(item.url);
-    return true;
-  });
 }
 
 async function gatherContext(
@@ -512,27 +573,45 @@ async function gatherContext(
     };
   }
 
+  const articleNumbers = getArticleNumbers(question);
+  const targetedSearch = articleNumbers.length > 0;
+
   const results = [];
 
   await Promise.all(
     discovered.roots
-      .slice(0, 12)
+      .slice(0, 30)
       .map(async (item) => {
         try {
-          const html = await fetchText(item.url);
+          const html = await fetchHtml(item.url);
           const text = htmlToText(html);
 
           if (text.length < 120) return;
 
+          const articleContext = targetedSearch
+            ? extractArticleContext(
+                text,
+                question
+              )
+            : '';
+
           results.push({
             ...item,
             text,
-            score: scoreText(text, question),
+            relevantText:
+              articleContext || text,
+            exactArticleFound:
+              !!articleContext,
+            score:
+              scoreText(text, question) +
+              (articleContext ? 1000 : 0),
           });
         } catch (error) {
           results.push({
             ...item,
             text: '',
+            relevantText: '',
+            exactArticleFound: false,
             score: -1,
             error: String(
               error?.message || error
@@ -544,17 +623,38 @@ async function gatherContext(
 
   results.sort((a, b) => b.score - a.score);
 
-  const chosen = results
+  let chosen = results
     .filter((item) => item.text)
     .slice(0, MAX_RESULTS);
 
+  // Для конкретной статьи оставляем только документы,
+  // где действительно найдена эта статья.
+  if (targetedSearch) {
+    const exact = results.filter(
+      (item) =>
+        item.text &&
+        item.exactArticleFound
+    );
+
+    if (exact.length) {
+      chosen = exact.slice(0, MAX_RESULTS);
+    }
+  }
+
   const context = chosen
-    .map(
-      (item, index) =>
-        `[ИСТОЧНИК ${index + 1}] ${item.title}
-URL: ${item.url}
-${item.text.slice(0, 8000)}`
-    )
+    .map((item, index) => {
+      const text = targetedSearch
+        ? item.relevantText
+        : item.text.slice(0, 10000);
+
+      return [
+        `[ИСТОЧНИК ${index + 1}] ${item.title}`,
+        `URL: ${item.url}`,
+        targetedSearch
+          ? `ТОЧНЫЙ ФРАГМЕНТ ПО ЗАПРОСУ:\n${text}`
+          : text,
+      ].join('\n');
+    })
     .join('\n\n---\n\n');
 
   return {
@@ -565,6 +665,8 @@ ${item.text.slice(0, 8000)}`
       url: item.url,
       score: item.score,
       chars: item.text.length,
+      exactArticleFound:
+        item.exactArticleFound,
       error: item.error || null,
     })),
     note: discovered.note || null,
@@ -695,17 +797,12 @@ async function ask(req, env) {
       });
     }
 
-    /*
-     * Пока Groq не подключён, возвращаем найденный
-     * официальный текст. Это позволяет отдельно
-     * проверить работу форума.
-     */
     if (!env.LLM_API_KEY) {
       return json({
         answer:
           'LLM_API_KEY ещё не подключён.\n\n' +
           'Найденный официальный материал:\n\n' +
-          context.slice(0, 10000),
+          context.slice(0, 12000),
         sources,
         meta,
       });
@@ -722,10 +819,13 @@ async function ask(req, env) {
           : 'Правила сервера'
       }.`,
       '',
-      'Используй ТОЛЬКО предоставленный контекст.',
+      'Используй ТОЛЬКО предоставленный официальный контекст.',
       'Не выдумывай статьи, пункты, наказания, сроки и исключения.',
-      'Если точного ответа нет в контексте, так и скажи.',
-      'Если есть номер статьи, обязательно укажи его.',
+      'Если в контексте есть точная статья, опирайся прежде всего на неё.',
+      'Если пользователь указал номер статьи, обязательно укажи номер статьи.',
+      'Если спрашивается наказание, обязательно укажи наказание.',
+      'Если точного ответа нет в контексте, честно скажи об этом.',
+      'Не используй свои знания вместо официального контекста.',
       '',
       'КОНТЕКСТ:',
       context,
@@ -738,7 +838,7 @@ async function ask(req, env) {
 
     const model =
       env.LLM_MODEL ||
-      'llama-3.3-70b-versatile';
+      'openai/gpt-oss-120b';
 
     const llm = await fetch(
       `${base}/chat/completions`,
@@ -841,6 +941,9 @@ export default {
           APP_VERSION,
         llmConfigured:
           !!env.LLM_API_KEY,
+        model:
+          env.LLM_MODEL ||
+          'openai/gpt-oss-120b',
         projects:
           Object.keys(CATALOG),
       });
