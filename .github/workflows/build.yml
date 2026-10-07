@@ -1,0 +1,22 @@
+name: Build Windows EXE
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Restore
+        run: dotnet restore LegalHelper/LegalHelper.csproj
+      - name: Publish
+        run: dotnet publish LegalHelper/LegalHelper.csproj -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true
+      - name: Upload EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: GTA5RP-Legal-Helper-Windows
+          path: LegalHelper/bin/Release/net8.0-windows/win-x64/publish/*.exe
