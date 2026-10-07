@@ -1,19 +1,28 @@
 <Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+
     <AssemblyName>GTA5RP.LegalHelper</AssemblyName>
     <RootNamespace>LegalHelper</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+
     <Product>GTA 5 RP Legal Helper</Product>
     <AssemblyTitle>GTA 5 RP Legal Helper</AssemblyTitle>
-    <Version>3.4.0</Version>
+    <Version>4.0.0</Version>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Speech" Version="10.0.12" />
+  </ItemGroup>
+
 </Project>
