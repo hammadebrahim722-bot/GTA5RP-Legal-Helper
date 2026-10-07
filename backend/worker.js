@@ -1,1670 +1,1416 @@
-const APP_VERSION = '3.4.0';
-const DOWNLOAD_URL = 'https://YOUR-SITE.pages.dev/GTA5RP-Legal-Helper.zip';
-
-const MAX_QUESTION = 1200;
-const MAX_RESULTS = 6;
-const CACHE_TTL = 900;
-const MAX_CATEGORY_THREADS = 35;
-const MAX_RULE_PAGES = 8;
-
-const cors = {
-  'access-control-allow-origin': '*',
-  'access-control-allow-methods': 'GET,POST,OPTIONS',
-  'access-control-allow-headers': 'content-type',
-  'access-control-max-age': '86400',
-};
-
-const json = (data, status = 200) =>
-  new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      'content-type': 'application/json;charset=utf-8',
-      ...cors,
-    },
-  });
-
-/*
- * ============================================================
- * КАТАЛОГ ПРОЕКТОВ
- * ============================================================
- */
-
 const CATALOG = {
-  GTA5RP: {
-    name: 'GTA5RP',
-    home: 'https://forum.gta5rp.com/',
-    rulesIndex:
-      'https://forum.gta5rp.com/threads/obshchiye-pravila-proyekta.3414615/',
-
-    /*
-     * Именно 13 серверов, которые ты указал.
-     */
+  "GTA5RP": {
     servers: [
-      'Downtown',
-      'Strawberry',
-      'Blackberry',
-      'Insquad',
-      'Sunrise',
-      'Richman',
-      'Eclipse',
-      'Rockford',
-      'Redwood',
-      'Murrieta',
-      'La Puerta',
-      'Chiliad',
-      'Mirror',
-    ],
+      "Downtown",
+      "Strawberry",
+      "Blackberry",
+      "Inscout",
+      "Sunrise",
+      "Richman",
+      "Eclipse",
+      "Rockford",
+      "Redwood",
+      "Murrieta",
+      "La Puerta",
+      "Chiliad",
+      "Mirror"
+    ]
   },
 
-  /*
-   * Majestic пока оставляем в каталоге.
-   * Его отдельные серверные источники будем подключать
-   * через ту же архитектуру.
-   */
-  'Majestic RP': {
-    name: 'Majestic RP',
-    home: 'https://forum.majestic-rp.ru/',
-    rulesIndex:
-      'https://forum.majestic-rp.ru/threads/pravila.3122888/',
+  "Majestic RP": {
     servers: [
-      'Detroit',
-      'Chicago',
-      'New York',
-      'Atlanta',
-      'San Diego',
-      'Miami',
-      'Las Vegas',
-      'Los Angeles',
-      'San Francisco',
-      'Washington',
-      'Dallas',
-      'Boston',
-      'Houston',
-      'Seattle',
-      'Denver',
-      'Memphis',
-    ],
+      "Aurora",
+      "Atlantis",
+      "Olympus",
+      "Valhalla"
+    ]
   },
 
-  'Russia Online': {
-    name: 'Russia Online',
-    home: 'https://forum.russia.online/',
-    rulesIndex: 'https://russiaonline.wiki/wiki/rules',
+  "Russia Online": {
     servers: [
-      'Арбатский',
-      'Тверской',
-      'Кутузовский',
-      'Невский',
-      'Ленинский',
-      'Советский',
-      'Центральный',
-    ],
-  },
+      "Основной"
+    ]
+  }
 };
 
-/*
- * ============================================================
- * ОФИЦИАЛЬНЫЕ РАЗДЕЛЫ 13 СЕРВЕРОВ GTA5RP
- * ============================================================
- *
- * Это именно страницы серверов.
- *
- * Дальше Worker САМ на странице сервера ищет:
- *
- *   Правила сервера
- *   Государственные организации
- *      -> Government
- *          -> Законодательная база
- *
- * Названия могут отличаться, поэтому поиск сделан
- * не по ID, а по названию раздела.
- */
+
+// ============================================================
+// GTA5RP — официальные разделы серверов
+// ============================================================
 
 const GTA_SERVER_PAGES = {
   Downtown:
-    'https://forum.gta5rp.com/forums/server-downtown.14/',
+    "https://forum.gta5rp.com/forums/server-downtown.14/",
 
   Strawberry:
-    'https://forum.gta5rp.com/forums/server-strawberry.89/',
+    "https://forum.gta5rp.com/forums/server-strawberry.89/",
 
   Blackberry:
-    'https://forum.gta5rp.com/forums/server-blackberry.223/',
+    "https://forum.gta5rp.com/forums/server-blackberry.223/",
 
   Insquad:
-    'https://forum.gta5rp.com/forums/server-insquad.296/',
+    "https://forum.gta5rp.com/forums/server-insquad.296/",
 
   Sunrise:
-    'https://forum.gta5rp.com/forums/server-sunrise.364/',
+    "https://forum.gta5rp.com/forums/server-sunrise.364/",
 
   Richman:
-    'https://forum.gta5rp.com/forums/server-richman.487/',
+    "https://forum.gta5rp.com/forums/server-richman.487/",
 
   Eclipse:
-    'https://forum.gta5rp.com/forums/server-eclipse.556/',
+    "https://forum.gta5rp.com/forums/server-eclipse.556/",
 
   Rockford:
-    'https://forum.gta5rp.com/forums/server-rockford.883/',
+    "https://forum.gta5rp.com/forums/server-rockford.883/",
 
   Redwood:
-    'https://forum.gta5rp.com/forums/server-redwood.1421/',
+    "https://forum.gta5rp.com/forums/server-redwood.1421/",
 
   Murrieta:
-    'https://forum.gta5rp.com/forums/server-murrieta.1689/',
+    "https://forum.gta5rp.com/forums/server-murrieta.1689/",
 
-  'La Puerta':
-    'https://forum.gta5rp.com/forums/server-la-puerta.1949/',
+  "La Puerta":
+    "https://forum.gta5rp.com/forums/server-la-puerta.1949/",
 
   Chiliad:
-    'https://forum.gta5rp.com/forums/server-chiliad.2094/',
+    "https://forum.gta5rp.com/forums/server-chiliad.2094/",
 
   Mirror:
-    'https://forum.gta5rp.com/forums/server-mirror.2163/',
+    "https://forum.gta5rp.com/forums/server-mirror.2163/"
 };
 
-/*
- * ============================================================
- * НАДЁЖНЫЕ ПРЯМЫЕ ДОКУМЕНТЫ
- * ============================================================
- *
- * Пока используем как аварийный fallback.
- * Основной механизм всё равно идёт через форум выбранного
- * сервера.
- *
- * Это особенно важно для Richman, где мы уже знаем
- * актуальную редакцию УК.
- */
+
+// ============================================================
+// Точные документы, которые нужно использовать напрямую,
+// если они известны.
+// ============================================================
 
 const GTA_DIRECT_DOCUMENTS = {
   Richman: [
     {
       title:
-        'Уголовный кодекс штата Сан-Андреас — редакция от 08 сентября 2026 года',
+        "Уголовный кодекс штата Сан-Андреас — редакция от 08 сентября 2026 года",
+
       url:
-        'https://forum.gta5rp.com/threads/ugolovnyi-kodeks-shtata-san-andreas-redaktsiya-ot-08-sentyabrya-2026-goda.3364593/',
-      priority: 100,
-    },
-  ],
+        "https://forum.gta5rp.com/threads/ugolovnyi-kodeks-shtata-san-andreas-redaktsiya-ot-08-sentyabrya-2026-goda.3364593/"
+    }
+  ]
 };
 
-/*
- * ============================================================
- * КЭШ
- * ============================================================
- */
 
-const memoryCache = new Map();
-const rateMap = new Map();
+// ============================================================
+// Настройки
+// ============================================================
 
-/*
- * ============================================================
- * НОРМАЛИЗАЦИЯ
- * ============================================================
- */
+// ВАЖНО:
+// Groq сейчас имеет ограничение около 8000 TPM.
+// Поэтому намеренно держим контекст маленьким.
+const MAX_RESULTS = 3;
 
-function normalizeServer(value) {
-  let result = String(value || '')
-    .replace(/\s*·\s*#\d+\s*$/u, '')
+const MAX_SOURCE_CHARS = 4500;
+
+const MAX_RULE_CONTEXT_CHARS = 2600;
+
+const MAX_ARTICLE_CONTEXT_CHARS = 4000;
+
+const MAX_CANDIDATES = 6;
+
+const MAX_OUTPUT_TOKENS = 1000;
+
+const CACHE_TTL = 60 * 1000;
+
+
+// ============================================================
+// Простое кэширование
+// ============================================================
+
+const cache = new Map();
+
+function cacheGet(key) {
+  const item = cache.get(key);
+
+  if (!item) {
+    return null;
+  }
+
+  if (Date.now() - item.time > CACHE_TTL) {
+    cache.delete(key);
+    return null;
+  }
+
+  return item.value;
+}
+
+function cacheSet(key, value) {
+  cache.set(key, {
+    time: Date.now(),
+    value
+  });
+
+  return value;
+}
+
+
+// ============================================================
+// Нормализация
+// ============================================================
+
+function normalizeServer(server) {
+  if (!server) {
+    return "";
+  }
+
+  let value = String(server)
+    .trim()
+    .replace(/·\s*#\d+/gi, "")
+    .replace(/\s+/g, " ");
+
+  if (value.toLowerCase() === "inscout") {
+    return "Insquad";
+  }
+
+  if (value.toLowerCase() === "richmond") {
+    return "Richman";
+  }
+
+  return value;
+}
+
+
+function normalizeMode(mode) {
+  const value = String(mode || "")
+    .trim()
+    .toLowerCase();
+
+  if (
+    value.includes("правил") ||
+    value.includes("rule") ||
+    value === "rules"
+  ) {
+    return "rules";
+  }
+
+  return "laws";
+}
+
+
+// ============================================================
+// HTML → текст
+// ============================================================
+
+function decodeHtml(value) {
+  return String(value || "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&#(\d+);/g, (_, n) => {
+      try {
+        return String.fromCodePoint(Number(n));
+      } catch {
+        return "";
+      }
+    })
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => {
+      try {
+        return String.fromCodePoint(parseInt(n, 16));
+      } catch {
+        return "";
+      }
+    });
+}
+
+
+function cleanText(value) {
+  return decodeHtml(value)
+    .replace(/\r/g, "")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n[ \t]+/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
 
-  /*
-   * На форуме сервер называется Insquad.
-   * Если клиент когда-нибудь пришлёт Inscout,
-   * всё равно направляем его в Insquad.
-   */
-  if (/^inscout$/i.test(result)) {
-    result = 'Insquad';
+
+function htmlToText(html) {
+  if (!html) {
+    return "";
+  }
+
+  let text = String(html);
+
+  text = text
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<svg[\s\S]*?<\/svg>/gi, " ");
+
+  text = text.replace(
+    /<(br|\/p|\/div|\/li|\/tr|\/h[1-6])[^>]*>/gi,
+    "\n"
+  );
+
+  text = text.replace(/<[^>]+>/g, " ");
+
+  return cleanText(text);
+}
+
+
+// ============================================================
+// Ссылки
+// ============================================================
+
+function extractLinks(html, baseUrl) {
+  const result = [];
+
+  const regex = /<a\b[^>]*href\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+
+  let match;
+
+  while ((match = regex.exec(html)) !== null) {
+    const href = decodeHtml(match[1]).trim();
+
+    if (!href) {
+      continue;
+    }
+
+    if (
+      href.startsWith("#") ||
+      href.startsWith("javascript:") ||
+      href.startsWith("mailto:")
+    ) {
+      continue;
+    }
+
+    let url;
+
+    try {
+      url = new URL(href, baseUrl).href;
+    } catch {
+      continue;
+    }
+
+    const title = cleanText(match[2]);
+
+    if (!title) {
+      continue;
+    }
+
+    result.push({
+      title,
+      url
+    });
   }
 
   return result;
 }
 
-function normalizeProject(value) {
-  const raw = String(value || '').trim();
 
-  if (/^gta\s*5\s*rp$/i.test(raw)) {
-    return 'GTA5RP';
+// ============================================================
+// Fetch официального форума
+// ============================================================
+
+async function fetchPage(url) {
+  const cached = cacheGet(`page:${url}`);
+
+  if (cached) {
+    return cached;
   }
 
-  if (/^majestic/i.test(raw)) {
-    return 'Majestic RP';
-  }
-
-  if (/^russia\s*online/i.test(raw)) {
-    return 'Russia Online';
-  }
-
-  return raw;
-}
-
-/*
- * ============================================================
- * HTML -> TEXT
- * ============================================================
- */
-
-function decodeHtml(value) {
-  return String(value || '')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'")
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&#(\d+);/g, (_, code) => {
-      try {
-        return String.fromCodePoint(Number(code));
-      } catch {
-        return ' ';
-      }
-    })
-    .replace(/&#x([0-9a-f]+);/gi, (_, code) => {
-      try {
-        return String.fromCodePoint(parseInt(code, 16));
-      } catch {
-        return ' ';
+  try {
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/154 Safari/537.36",
+        "Accept":
+          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.7"
+      },
+      cf: {
+        cacheTtl: 30
       }
     });
-}
 
-function cleanText(value) {
-  return decodeHtml(String(value || ''))
-    .replace(/\u00a0/g, ' ')
-    .replace(/[ \t]+\n/g, '\n')
-    .replace(/\n[ \t]+/g, '\n')
-    .replace(/[ \t]{2,}/g, ' ')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
-
-function htmlToText(html) {
-  let text = String(html || '');
-
-  text = text
-    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<noscript[\s\S]*?<\/noscript>/gi, ' ')
-    .replace(/<!--[\s\S]*?-->/g, ' ');
-
-  text = text
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/p>/gi, '\n')
-    .replace(/<\/div>/gi, '\n')
-    .replace(/<\/li>/gi, '\n')
-    .replace(/<\/tr>/gi, '\n')
-    .replace(/<\/td>/gi, ' ')
-    .replace(/<\/th>/gi, ' ')
-    .replace(/<\/h[1-6]>/gi, '\n')
-    .replace(/<[^>]+>/g, ' ');
-
-  return cleanText(text);
-}
-
-/*
- * ============================================================
- * ССЫЛКИ
- * ============================================================
- */
-
-function extractLinks(html, baseUrl) {
-  const links = [];
-
-  /*
-   * XenForo может располагать атрибуты <a> в разном порядке,
-   * поэтому не привязываемся к конкретному порядку атрибутов.
-   */
-  const anchorRegex =
-    /<a\b([^>]*)>([\s\S]*?)<\/a>/gi;
-
-  let match;
-
-  while ((match = anchorRegex.exec(html || ''))) {
-    const attrs = match[1] || '';
-    const inner = match[2] || '';
-
-    const hrefMatch =
-      attrs.match(
-        /\bhref\s*=\s*["']([^"']+)["']/i
-      );
-
-    if (!hrefMatch) {
-      continue;
+    if (!response.ok) {
+      return null;
     }
 
-    const href = decodeHtml(hrefMatch[1]).trim();
+    const html = await response.text();
 
-    const title = cleanText(
-      inner
-        .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-        .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-        .replace(/<[^>]+>/g, ' ')
-    );
+    const result = {
+      url,
+      html,
+      text: htmlToText(html)
+    };
 
-    if (!href || !title) {
-      continue;
-    }
+    cacheSet(`page:${url}`, result);
 
-    try {
-      const url = new URL(href, baseUrl).href;
-
-      if (
-        !url.startsWith('https://') &&
-        !url.startsWith('http://')
-      ) {
-        continue;
-      }
-
-      links.push({
-        title,
-        url,
-      });
-    } catch {
-      // Игнорируем битые ссылки.
-    }
+    return result;
+  } catch {
+    return null;
   }
-
-  return uniqueItems(links);
 }
 
-/*
- * ============================================================
- * FETCH
- * ============================================================
- */
 
-async function fetchHtml(url) {
-  const cached = memoryCache.get(url);
-  const now = Date.now();
-
-  if (
-    cached &&
-    now - cached.at < CACHE_TTL * 1000
-  ) {
-    return cached.html;
-  }
-
-  const response = await fetch(url, {
-    method: 'GET',
-    redirect: 'follow',
-    headers: {
-      'User-Agent':
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/154.0.0.0 Safari/537.36',
-      Accept:
-        'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Accept-Language':
-        'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
-      Referer:
-        'https://forum.gta5rp.com/',
-      'Cache-Control':
-        'no-cache',
-    },
-  });
-
-  const body = await response.text();
-
-  if (!response.ok) {
-    throw new Error(
-      `HTTP ${response.status}: ${body.slice(0, 300)}`
-    );
-  }
-
-  const html = body.slice(0, 2_500_000);
-
-  memoryCache.set(url, {
-    html,
-    at: now,
-  });
-
-  return html;
-}
-
-/*
- * ============================================================
- * ОБЩИЕ УТИЛИТЫ
- * ============================================================
- */
-
-function uniqueItems(items) {
-  const seen = new Set();
-
-  return (items || []).filter((item) => {
-    if (!item?.url || seen.has(item.url)) {
-      return false;
-    }
-
-    seen.add(item.url);
-    return true;
-  });
-}
-
-function isForumThread(url) {
-  return String(url || '').includes('/threads/');
-}
-
-function isForumPage(url) {
-  return (
-    String(url || '').includes('forum.gta5rp.com/')
-  );
-}
-
-function hasArchiveWord(title) {
-  return /\bархив\b/i.test(
-    String(title || '')
-  );
-}
-
-/*
- * ============================================================
- * ДАТА В НАЗВАНИИ ДОКУМЕНТА
- * ============================================================
- */
-
-function extractDateScore(title) {
-  const text = String(title || '');
-
-  const numeric =
-    text.match(
-      /(\d{1,2})[./](\d{1,2})[./](20\d{2})/
-    );
-
-  if (numeric) {
-    const day = Number(numeric[1]);
-    const month = Number(numeric[2]);
-    const year = Number(numeric[3]);
-
-    return Date.UTC(year, month - 1, day);
-  }
-
-  const monthMap = {
-    января: 0,
-    февраля: 1,
-    марта: 2,
-    апреля: 3,
-    мая: 4,
-    июня: 5,
-    июля: 6,
-    августа: 7,
-    сентября: 8,
-    октября: 9,
-    ноября: 10,
-    декабря: 11,
-  };
-
-  const verbal =
-    text.match(
-      /(\d{1,2})\s+(января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)\s+(20\d{2})/i
-    );
-
-  if (verbal) {
-    const day = Number(verbal[1]);
-    const month = monthMap[
-      verbal[2].toLowerCase()
-    ];
-    const year = Number(verbal[3]);
-
-    return Date.UTC(year, month, day);
-  }
-
-  return 0;
-}
-
-/*
- * ============================================================
- * СТАТЬЯ ИЗ ВОПРОСА
- * ============================================================
- */
+// ============================================================
+// Номера статей
+// ============================================================
 
 function getArticleNumbers(question) {
-  const text = String(question || '');
+  const result = new Set();
 
-  const found = [];
+  const text = String(question || "");
 
   const patterns = [
-    /\bст\.?\s*(\d+(?:\.\d+){0,3})\b/giu,
-    /\bстать(?:я|и|е|ю|ёй|ей)?\s*(\d+(?:\.\d+){0,3})\b/giu,
-    /(?:^|\s)(\d+(?:\.\d+){0,3})(?:\s*$)/gu,
+    /ст\.?\s*(\d+(?:\.\d+){0,3})/gi,
+    /статья\s*(\d+(?:\.\d+){0,3})/gi,
+    /статьи\s*(\d+(?:\.\d+){0,3})/gi,
+    /артикул[а-я]*\s*(\d+(?:\.\d+){0,3})/gi
   ];
 
   for (const regex of patterns) {
     let match;
 
-    while ((match = regex.exec(text))) {
-      if (match[1]) {
-        found.push(match[1]);
-      }
+    while ((match = regex.exec(text)) !== null) {
+      result.add(match[1]);
     }
   }
 
-  return [...new Set(found)];
-}
+  // Если пользователь просто пишет "17.1"
+  const bare = text.match(/\b\d+\.\d+(?:\.\d+){0,2}\b/g);
 
-/*
- * ============================================================
- * ВЫРЕЗАНИЕ СТАТЬИ
- * ============================================================
- */
-
-function extractArticleContext(
-  text,
-  articleNumbers
-) {
-  const source = String(text || '');
-
-  if (!articleNumbers.length) {
-    return source;
+  if (bare) {
+    for (const item of bare) {
+      result.add(item);
+    }
   }
 
-  for (const number of articleNumbers) {
-    const escaped =
-      number.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return [...result];
+}
 
-    const regex = new RegExp(
-      `(?:^|\\n|\\s)Статья\\s+${escaped}(?=\\s|\\.|:|\\(|-)`,
-      'iu'
-    );
 
-    const match = regex.exec(source);
+// ============================================================
+// Извлечение статьи
+// ============================================================
 
-    if (!match) {
+function extractArticleContext(text, articleNumber) {
+  if (!text || !articleNumber) {
+    return "";
+  }
+
+  const escaped = articleNumber.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+  const regex = new RegExp(
+    `(?:статья|ст\\.)\\s*${escaped}\\b`,
+    "i"
+  );
+
+  const match = regex.exec(text);
+
+  if (!match) {
+    return "";
+  }
+
+  const start = Math.max(0, match.index - 300);
+
+  return text.slice(
+    start,
+    start + MAX_ARTICLE_CONTEXT_CHARS
+  );
+}
+
+
+// ============================================================
+// Извлечение игрового наказания.
+//
+// НИКОГДА НЕ ПЕРЕСЧИТЫВАЕМ.
+// Берём только то, что реально написано на форуме.
+// ============================================================
+
+function extractGamePenalty(text) {
+  if (!text) {
+    return "";
+  }
+
+  const patterns = [
+    /\(\(\s*[^)]{0,120}?\d+(?:[.,]\d+)?\s*(?:мин|минут|минуты|минуту|час|часа|часов|день|дня|дней)\b[^)]{0,120}\)\)/gi,
+    /\(\(\s*[^)]{0,120}\)\)/gi
+  ];
+
+  for (const regex of patterns) {
+    const matches = text.match(regex);
+
+    if (!matches) {
       continue;
     }
 
-    const start = Math.max(
-      0,
-      match.index - 500
-    );
-
-    /*
-     * Берём большой кусок, чтобы захватить:
-     * - название статьи
-     * - описание
-     * - части статьи
-     * - наказание
-     * - ((минуты))
-     * - исключения
-     */
-    const fragment = source.slice(
-      start,
-      start + 10000
-    );
-
-    return fragment;
+    for (const match of matches) {
+      if (
+        /\d+\s*(?:мин|минут|минуты|минуту|час|часа|часов|день|дня|дней)/i.test(
+          match
+        )
+      ) {
+        return match.trim();
+      }
+    }
   }
 
-  return '';
+  return "";
 }
 
-/*
- * ============================================================
- * ИЗВЛЕЧЕНИЕ ИГРОВОГО НАКАЗАНИЯ
- * ============================================================
- *
- * НИЧЕГО НЕ ПЕРЕСЧИТЫВАЕМ.
- *
- * Если на форуме написано:
- *
- * 8-12 лет ((80-120 мин))
- *
- * берём именно 80-120 мин.
- */
 
-function extractGamePenalty(text) {
-  const source = String(text || '');
+// ============================================================
+// Поиск правил DB / DM / MG / PG и т.п.
+// ============================================================
 
-  const matches =
-    source.match(
-      /\(\(\s*[^()]{0,250}?\b(?:мин|минут|минуты|дней|дня|час(?:а|ов)?)\b[^()]{0,250}?\)\)/giu
-    ) || [];
-
-  return [...new Set(
-    matches.map((item) => item.trim())
-  )].slice(0, 8);
-}
-
-/*
- * ============================================================
- * СКОРИНГ
- * ============================================================
- */
-
-function scoreText(
-  text,
-  question,
-  title = ''
-) {
-  const lower =
-    String(text || '').toLowerCase();
-
-  const titleLower =
-    String(title || '').toLowerCase();
-
-  const q =
-    String(question || '')
-      .toLowerCase();
-
-  const words = q
-    .replace(/[^\p{L}\p{N}\s.]+/gu, ' ')
-    .split(/\s+/)
-    .filter((word) => word.length >= 2);
-
-  let score = 0;
-
-  for (const word of words) {
-    if (lower.includes(word)) {
-      score += word.length >= 6 ? 4 : 1;
-    }
-
-    if (titleLower.includes(word)) {
-      score += word.length >= 6 ? 12 : 4;
-    }
+function extractRuleContext(text, question) {
+  if (!text) {
+    return "";
   }
 
-  const numbers =
-    q.match(/\d+(?:\.\d+)*/g) || [];
+  const q = String(question || "").toLowerCase();
 
-  for (const number of numbers) {
-    const articleRegex = new RegExp(
-      `\\b${number.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`
-    );
+  const abbreviations = [
+    "db",
+    "dm",
+    "mg",
+    "pg",
+    "rk",
+    "tk",
+    "ck",
+    "bh",
+    "fear rp",
+    "non rp",
+    "nvvp",
+    "rp"
+  ];
 
-    if (articleRegex.test(lower)) {
-      score += 20;
-    }
-
-    if (
-      new RegExp(
-        `статья\\s+${number.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`,
-        'i'
-      ).test(lower)
-    ) {
-      score += 100;
-    }
-  }
-
-  /*
-   * Если вопрос похож на DB/DM/MG/PG и т.д.,
-   * правила проекта становятся особенно важными.
-   */
-  const abbreviations =
-    q.match(/\b(?:db|dm|mg|pg|rk|nlr|tk|sk|nonrp|fearrp)\b/gi) || [];
+  let selected = [];
 
   for (const abbreviation of abbreviations) {
     if (
-      lower.includes(abbreviation.toLowerCase())
+      new RegExp(
+        `(^|[^a-zа-яё])${abbreviation.replace(" ", "\\s+")}([^a-zа-яё]|$)`,
+        "i"
+      ).test(q)
     ) {
-      score += 80;
+      selected.push(abbreviation);
     }
   }
 
-  return score;
+  // Для DB, DM, MG и т.п. ищем именно соответствующее место
+  if (selected.length > 0) {
+    for (const abbreviation of selected) {
+      const regex = new RegExp(
+        `(^|[^a-zа-яё])${abbreviation.replace(" ", "\\s+")}(?=[^a-zа-яё]|$)`,
+        "i"
+      );
+
+      const match = regex.exec(text);
+
+      if (match) {
+        const start = Math.max(
+          0,
+          match.index - 500
+        );
+
+        return text.slice(
+          start,
+          start + MAX_RULE_CONTEXT_CHARS
+        );
+      }
+    }
+  }
+
+  // Если пользователь задаёт обычный вопрос,
+  // ищем совпадения по словам вопроса.
+  const words = q
+    .replace(/[^a-zа-яё0-9]+/gi, " ")
+    .split(/\s+/)
+    .filter(word => word.length >= 4)
+    .slice(0, 8);
+
+  let bestIndex = -1;
+  let bestScore = 0;
+
+  for (const word of words) {
+    const index = text.toLowerCase().indexOf(word);
+
+    if (index >= 0) {
+      if (word.length > bestScore) {
+        bestScore = word.length;
+        bestIndex = index;
+      }
+    }
+  }
+
+  if (bestIndex >= 0) {
+    const start = Math.max(
+      0,
+      bestIndex - 700
+    );
+
+    return text.slice(
+      start,
+      start + MAX_RULE_CONTEXT_CHARS
+    );
+  }
+
+  return text.slice(0, MAX_RULE_CONTEXT_CHARS);
 }
 
-/*
- * ============================================================
- * ОПРЕДЕЛЕНИЕ НУЖНОГО ДОКУМЕНТА
- * ============================================================
- */
 
-function documentTitleScore(
-  title,
-  question,
-  mode
-) {
-  const t =
-    String(title || '').toLowerCase();
+// ============================================================
+// Скоринг источника
+// ============================================================
 
-  const q =
-    String(question || '').toLowerCase();
+function scoreText(text, question, articleNumbers = []) {
+  if (!text) {
+    return 0;
+  }
+
+  const source = text.toLowerCase();
+  const q = String(question || "").toLowerCase();
 
   let score = 0;
 
-  /*
-   * Для статей типа 17.1 почти всегда нужен УК.
-   */
-  const articleNumbers =
-    getArticleNumbers(question);
+  const words = q
+    .replace(/[^a-zа-яё0-9.]+/gi, " ")
+    .split(/\s+/)
+    .filter(x => x.length >= 3)
+    .slice(0, 15);
 
-  if (articleNumbers.length) {
-    if (
-      /уголов|уголовно|административ/.test(t)
-    ) {
-      score += 100;
-    }
-
-    if (/кодекс/.test(t)) {
-      score += 25;
+  for (const word of words) {
+    if (source.includes(word)) {
+      score += 2;
     }
   }
 
-  /*
-   * Законодательные вопросы.
-   */
-  if (mode === 'laws') {
-    if (/уголов/.test(q) && /уголов/.test(t)) {
-      score += 80;
+  for (const article of articleNumbers) {
+    if (
+      source.includes(`статья ${article}`) ||
+      source.includes(`ст. ${article}`) ||
+      source.includes(`ст ${article}`)
+    ) {
+      score += 30;
     }
 
-    if (
-      /админ|штраф|парков|дорож|скорост/.test(q) &&
-      /административ|дорожн/.test(t)
-    ) {
-      score += 70;
-    }
-
-    if (
-      /суд|иск|адвокат|прокурат|доказатель/.test(q) &&
-      /процессуал|судеб/.test(t)
-    ) {
-      score += 60;
-    }
-
-    if (
-      /работ|увольн|зарплат|отпуск/.test(q) &&
-      /труд/.test(t)
-    ) {
-      score += 60;
-    }
-
-    if (
-      /конституц|презумпц|права граждан|свобод/.test(q) &&
-      /конституц/.test(t)
-    ) {
-      score += 60;
+    if (source.includes(article)) {
+      score += 10;
     }
   }
 
-  /*
-   * Для игровых правил.
-   */
-  if (mode === 'rules') {
+  const abbreviations = [
+    "db",
+    "dm",
+    "mg",
+    "pg",
+    "rk",
+    "tk"
+  ];
+
+  for (const item of abbreviations) {
     if (
-      /\bdb\b|\bdm\b|\bmg\b|\bpg\b|\brk\b|\bnlr\b|\btk\b|\bsk\b/i.test(q)
+      new RegExp(
+        `(^|[^a-zа-яё])${item}([^a-zа-яё]|$)`,
+        "i"
+      ).test(q)
     ) {
       if (
-        /правил|общие|игров|roleplay|rp/.test(t)
+        new RegExp(
+          `(^|[^a-zа-яё])${item}([^a-zа-яё]|$)`,
+          "i"
+        ).test(source)
       ) {
-        score += 70;
+        score += 25;
       }
     }
-
-    if (
-      /гос|government|фракц/.test(q) &&
-      /государ|фракц/.test(t)
-    ) {
-      score += 50;
-    }
-
-    if (
-      /криминал|банда|мафия/.test(q) &&
-      /криминал/.test(t)
-    ) {
-      score += 50;
-    }
-  }
-
-  /*
-   * Более новая редакция важнее старой.
-   */
-  const date = extractDateScore(title);
-
-  if (date) {
-    score +=
-      Math.floor(
-        date / 86_400_000_000
-      );
-  }
-
-  if (hasArchiveWord(title)) {
-    score -= 500;
   }
 
   return score;
 }
 
-/*
- * ============================================================
- * ПОИСК ПОДФОРУМА НА СТРАНИЦЕ СЕРВЕРА
- * ============================================================
- */
+
+// ============================================================
+// Оценка названия документа
+// ============================================================
+
+function documentTitleScore(title, question, mode) {
+  const value = String(title || "").toLowerCase();
+
+  let score = 0;
+
+  if (mode === "laws") {
+    const legalWords = [
+      "кодекс",
+      "закон",
+      "законодатель",
+      "устав",
+      "положение",
+      "уголовн",
+      "административ"
+    ];
+
+    for (const word of legalWords) {
+      if (value.includes(word)) {
+        score += 15;
+      }
+    }
+  }
+
+  if (mode === "rules") {
+    const ruleWords = [
+      "правил",
+      "общие правила",
+      "игровые правила",
+      "правила проекта",
+      "rules"
+    ];
+
+    for (const word of ruleWords) {
+      if (value.includes(word)) {
+        score += 15;
+      }
+    }
+  }
+
+  // Архивы не должны побеждать актуальные документы.
+  if (
+    value.includes("архив") ||
+    value.includes("изменени") ||
+    value.includes("стар")
+  ) {
+    score -= 25;
+  }
+
+  // Более свежие редакции обычно важнее старых.
+  const dates = value.match(
+    /\b(20\d{2})[.\-/](\d{1,2})[.\-/](\d{1,2})\b/
+  );
+
+  if (dates) {
+    score += Number(dates[1]) - 2020;
+  }
+
+  return score;
+}
+
+
+// ============================================================
+// Поиск раздела законодательной базы
+// ============================================================
 
 function findLawSection(links) {
-  const exact = links.find((item) => {
-    const title =
-      String(item.title || '')
-        .trim()
-        .toLowerCase();
+  const preferred = [];
 
-    return (
-      title === 'законодательная база' ||
-      title === 'законодательство'
-    );
-  });
-
-  if (exact) {
-    return exact;
-  }
-
-  return links.find((item) =>
-    /законодательная база|законодательство/i.test(
-      item.title
-    )
-  );
-}
-
-function findRulesSections(links) {
-  return links.filter((item) => {
-    if (!item.url) {
-      return false;
-    }
+  for (const link of links) {
+    const title = link.title.toLowerCase();
 
     if (
-      !item.url.includes('/forums/')
+      title.includes("законодательная база") ||
+      title === "законодательство" ||
+      title.includes("законодательство")
     ) {
-      return false;
-    }
-
-    return /общие правила|правила для государственных|правила для государственных фракций|правила для криминальных|правила криминальных|правила неофициальных|дополнительные правила|правила сервера/i.test(
-      item.title
-    );
-  });
-}
-
-/*
- * ============================================================
- * СБОР ТЕМ ИЗ КАТЕГОРИИ
- * ============================================================
- */
-
-async function collectCategoryThreads(
-  categoryUrl,
-  categoryTitle,
-  mode
-) {
-  const firstHtml =
-    await fetchHtml(categoryUrl);
-
-  const allLinks = [];
-
-  /*
-   * Первая страница.
-   */
-  allLinks.push(
-    ...extractLinks(
-      firstHtml,
-      categoryUrl
-    )
-  );
-
-  /*
-   * Пытаемся найти страницы пагинации.
-   */
-  const pagination =
-    extractLinks(
-      firstHtml,
-      categoryUrl
-    )
-      .filter((item) =>
-        item.url.includes('/page-')
-      )
-      .slice(0, 4);
-
-  for (const page of pagination) {
-    try {
-      const pageHtml =
-        await fetchHtml(page.url);
-
-      allLinks.push(
-        ...extractLinks(
-          pageHtml,
-          page.url
-        )
-      );
-    } catch {
-      // Не критично.
+      preferred.push(link);
     }
   }
 
-  const pattern =
-    mode === 'laws'
-      ? /закон|кодекс|конституц|акт|право|трудовой|административ|уголов|процессуал|гражданск|дорожн|судебн|прокурат|полици|шериф|government/i
-      : /правил|фракц|организац|дополнен|переопредел|roleplay|rp/i;
-
-  const threads = uniqueItems(
-    allLinks
-      .filter((item) => {
-        if (!isForumThread(item.url)) {
-          return false;
-        }
-
-        if (hasArchiveWord(item.title)) {
-          return false;
-        }
-
-        return pattern.test(
-          item.title
-        );
-      })
-      .slice(0, MAX_CATEGORY_THREADS)
-  );
-
-  return {
-    title: categoryTitle,
-    url: categoryUrl,
-    threads,
-  };
+  return preferred;
 }
 
-/*
- * ============================================================
- * ОБНАРУЖЕНИЕ ИСТОЧНИКОВ GTA5RP
- * ============================================================
- */
+
+// ============================================================
+// Поиск разделов правил
+// ============================================================
+
+function findRulesSections(links) {
+  const result = [];
+
+  for (const link of links) {
+    const title = link.title.toLowerCase();
+
+    if (
+      title.includes("правил") ||
+      title.includes("игровые правила") ||
+      title.includes("общие правила") ||
+      title.includes("rules")
+    ) {
+      result.push(link);
+    }
+  }
+
+  return result;
+}
+
+
+// ============================================================
+// Получение тем из категории
+// ============================================================
+
+async function collectCategoryThreads(categoryUrl) {
+  const result = [];
+
+  const pages = [
+    categoryUrl,
+    `${categoryUrl}page-2`,
+    `${categoryUrl}page-3`,
+    `${categoryUrl}page-4`
+  ];
+
+  for (const pageUrl of pages) {
+    const page = await fetchPage(pageUrl);
+
+    if (!page) {
+      continue;
+    }
+
+    const links = extractLinks(
+      page.html,
+      pageUrl
+    );
+
+    for (const link of links) {
+      if (!link.url.includes("/threads/")) {
+        continue;
+      }
+
+      if (
+        !result.some(
+          x => x.url === link.url
+        )
+      ) {
+        result.push(link);
+      }
+    }
+  }
+
+  return result.slice(0, 20);
+}
+
+
+// ============================================================
+// Определяем источники конкретного GTA5RP сервера
+// ============================================================
 
 async function discoverGtaServer(
   server,
-  mode,
-  question
+  mode
 ) {
-  const serverName =
-    normalizeServer(server);
+  const normalized = normalizeServer(server);
 
-  const serverPage =
-    GTA_SERVER_PAGES[serverName];
+  const serverUrl =
+    GTA_SERVER_PAGES[normalized];
 
-  if (!serverPage) {
-    return {
-      serverName,
-      roots: [],
-      note:
-        `Для сервера «${serverName}» не найден официальный форум.`,
-    };
+  if (!serverUrl) {
+    return [];
   }
 
-  const html =
-    await fetchHtml(serverPage);
+  const result = [];
 
-  const links =
-    extractLinks(
-      html,
-      serverPage
-    );
+  // ----------------------------------------------------------
+  // Законодательная база
+  // ----------------------------------------------------------
 
-  /*
-   * ========================================================
-   * ЗАКОНОДАТЕЛЬНАЯ БАЗА
-   * ========================================================
-   */
+  if (mode === "laws") {
+    const page = await fetchPage(serverUrl);
 
-  if (mode === 'laws') {
-    const lawSection =
-      findLawSection(links);
+    if (page) {
+      const links = extractLinks(
+        page.html,
+        serverUrl
+      );
 
-    const roots = [];
+      const lawSections =
+        findLawSection(links);
 
-    if (lawSection) {
-      roots.push({
-        title:
-          `${lawSection.title} — ${serverName}`,
-        url:
-          lawSection.url,
-        priority: 50,
-      });
-
-      try {
-        const category =
+      for (const section of lawSections.slice(0, 2)) {
+        const threads =
           await collectCategoryThreads(
-            lawSection.url,
-            lawSection.title,
-            'laws'
+            section.url
           );
 
-        for (const thread of category.threads) {
-          roots.push({
-            ...thread,
-            priority:
-              documentTitleScore(
-                thread.title,
-                question,
-                'laws'
-              ),
-          });
-        }
-      } catch {
-        // Ниже будет fallback.
+        result.push(
+          ...threads.map(item => ({
+            ...item,
+            kind: "law"
+          }))
+        );
       }
     }
 
-    /*
-     * Для Richman добавляем известный актуальный УК.
-     */
-    if (GTA_DIRECT_DOCUMENTS[serverName]) {
-      roots.push(
-        ...GTA_DIRECT_DOCUMENTS[serverName]
+    // Добавляем известный актуальный прямой документ.
+    const direct =
+      GTA_DIRECT_DOCUMENTS[normalized] || [];
+
+    result.push(
+      ...direct.map(item => ({
+        ...item,
+        kind: "law-direct"
+      }))
+    );
+  }
+
+  // ----------------------------------------------------------
+  // Игровые правила
+  // ----------------------------------------------------------
+
+  if (mode === "rules") {
+    const page = await fetchPage(serverUrl);
+
+    if (page) {
+      const links = extractLinks(
+        page.html,
+        serverUrl
       );
+
+      const ruleSections =
+        findRulesSections(links);
+
+      for (const section of ruleSections.slice(0, 2)) {
+        const threads =
+          await collectCategoryThreads(
+            section.url
+          );
+
+        result.push(
+          ...threads.map(item => ({
+            ...item,
+            kind: "rule"
+          }))
+        );
+      }
     }
 
-    /*
-     * Если раздел не нашёлся автоматически,
-     * всё равно пробуем прямой документ.
-     */
-    if (!roots.length) {
-      return {
-        serverName,
-        roots: [],
-        note:
-          `На официальном форуме сервера ${serverName} не удалось автоматически найти раздел законодательной базы.`,
-      };
+    // Глобальные правила GTA5RP.
+    result.push({
+      title: "Общие правила GTA5RP",
+      url: "https://forum.gta5rp.com/forums/",
+      kind: "global-rules"
+    });
+  }
+
+  // Удаляем дубли.
+  const unique = [];
+
+  for (const item of result) {
+    if (
+      !unique.some(
+        x => x.url === item.url
+      )
+    ) {
+      unique.push(item);
     }
-
-    return {
-      serverName,
-      roots: uniqueItems(
-        roots
-          .sort(
-            (a, b) =>
-              (b.priority || 0) -
-              (a.priority || 0)
-          )
-          .slice(0, 30)
-      ),
-      note: null,
-    };
   }
 
-  /*
-   * ========================================================
-   * ИГРОВЫЕ ПРАВИЛА
-   * ========================================================
-   */
-
-  const roots = [];
-
-  /*
-   * Глобальные правила проекта.
-   */
-  roots.push({
-    title:
-      'Общие правила проекта GTA5RP',
-    url:
-      CATALOG.GTA5RP.rulesIndex,
-    priority: 80,
-  });
-
-  /*
-   * Страница правил сервера.
-   */
-  const serverRules =
-    links.find((item) =>
-      /правила сервера/i.test(
-        item.title
-      )
-    );
-
-  if (serverRules) {
-    roots.push({
-      title:
-        serverRules.title,
-      url:
-        serverRules.url,
-      priority: 70,
-    });
-  }
-
-  /*
-   * Общие правила / гос / крим / неоф.
-   */
-  const ruleSections =
-    findRulesSections(links);
-
-  for (const section of ruleSections) {
-    roots.push({
-      title:
-        `${section.title} — ${serverName}`,
-      url:
-        section.url,
-      priority:
-        documentTitleScore(
-          section.title,
-          question,
-          'rules'
-        ),
-    });
-  }
-
-  /*
-   * Специальные дополнения / переопределения.
-   */
-  const additionalRules =
-    links.filter((item) =>
-      /переопредел|дополнен.*правил|дополнительные правила/i.test(
-        item.title
-      )
-    );
-
-  for (const item of additionalRules) {
-    roots.push({
-      title:
-        `${item.title} — ${serverName}`,
-      url:
-        item.url,
-      priority: 90,
-    });
-  }
-
-  return {
-    serverName,
-    roots: uniqueItems(roots),
-    note: null,
-  };
+  return unique;
 }
 
-/*
- * ============================================================
- * ДРУГИЕ ПРОЕКТЫ
- * ============================================================
- */
 
-async function discoverGeneric(
-  project,
-  server,
+// ============================================================
+// Подготовка одного источника
+// ============================================================
+
+async function prepareSource(
+  source,
+  question,
   mode,
-  question
+  articleNumbers
 ) {
-  const cfg =
-    CATALOG[project];
-
-  if (!cfg) {
-    return {
-      roots: [],
-      note:
-        'Неизвестный проект.',
-    };
-  }
-
-  /*
-   * Для Majestic/Russia Online пока используем
-   * официальный общий раздел.
-   *
-   * Архитектура уже готова для серверных разделов.
-   */
-  const roots = [];
-
-  roots.push({
-    title:
-      mode === 'laws'
-        ? `${project} — законодательство`
-        : `${project} — правила проекта`,
-    url:
-      cfg.rulesIndex,
-    priority: 80,
-  });
-
-  try {
-    const html =
-      await fetchHtml(
-        cfg.rulesIndex
-      );
-
-    const links =
-      extractLinks(
-        html,
-        cfg.rulesIndex
-      );
-
-    const terms =
-      mode === 'laws'
-        ? /закон|кодекс|законодатель|право|constitution|law/i
-        : /правил|rules|db|dm|mg|pg/i;
-
-    const selected =
-      links
-        .filter((item) =>
-          isForumThread(item.url) &&
-          terms.test(item.title) &&
-          !hasArchiveWord(item.title)
-        )
-        .map((item) => ({
-          ...item,
-          priority:
-            documentTitleScore(
-              item.title,
-              question,
-              mode
-            ),
-        }))
-        .sort(
-          (a, b) =>
-            (b.priority || 0) -
-            (a.priority || 0)
-        )
-        .slice(0, 15);
-
-    roots.push(
-      ...selected
-    );
-  } catch {
-    // Общая страница всё равно останется источником.
-  }
-
-  return {
-    roots:
-      uniqueItems(roots),
-    note: null,
-  };
-}
-
-/*
- * ============================================================
- * ОБЩЕЕ ОБНАРУЖЕНИЕ
- * ============================================================
- */
-
-async function discoverSources(
-  project,
-  server,
-  mode,
-  question
-) {
-  if (project === 'GTA5RP') {
-    return discoverGtaServer(
-      server,
-      mode,
-      question
-    );
-  }
-
-  return discoverGeneric(
-    project,
-    server,
-    mode,
-    question
+  const page = await fetchPage(
+    source.url
   );
+
+  if (!page) {
+    return null;
+  }
+
+  let context = "";
+
+  // Для законодательства стараемся найти
+  // именно нужную статью.
+  if (
+    mode === "laws" &&
+    articleNumbers.length > 0
+  ) {
+    for (const article of articleNumbers) {
+      const extracted =
+        extractArticleContext(
+          page.text,
+          article
+        );
+
+      if (extracted) {
+        context = extracted;
+        break;
+      }
+    }
+  }
+
+  // Для правил DB/DM/MG/PG и обычных вопросов
+  // берём только небольшой релевантный кусок.
+  if (!context && mode === "rules") {
+    context = extractRuleContext(
+      page.text,
+      question
+    );
+  }
+
+  // Для закона без номера статьи.
+  if (!context) {
+    context = page.text.slice(
+      0,
+      MAX_SOURCE_CHARS
+    );
+  }
+
+  const penalty =
+    extractGamePenalty(context) ||
+    extractGamePenalty(page.text);
+
+  const score =
+    scoreText(
+      context,
+      question,
+      articleNumbers
+    ) +
+    documentTitleScore(
+      source.title,
+      question,
+      mode
+    );
+
+  return {
+    ...source,
+    context,
+    penalty,
+    score
+  };
 }
 
-/*
- * ============================================================
- * СБОР КОНТЕКСТА
- * ============================================================
- */
 
-async function gatherContext(
+// ============================================================
+// Сбор контекста
+// ============================================================
+
+async function gatherContext({
   project,
   server,
   mode,
   question
-) {
-  const discovered =
-    await discoverSources(
-      project,
-      server,
-      mode,
-      question
-    );
+}) {
+  const normalizedMode =
+    normalizeMode(mode);
 
-  if (!discovered.roots.length) {
-    return {
-      context: '',
-      sources: [],
-      meta: [],
-      note:
-        discovered.note ||
-        null,
-    };
-  }
+  const normalizedServer =
+    normalizeServer(server);
 
   const articleNumbers =
     getArticleNumbers(question);
 
-  const candidates =
-    discovered.roots
-      .map((item) => ({
-        ...item,
-        titleScore:
-          documentTitleScore(
-            item.title,
-            question,
-            mode
-          ),
-      }))
-      .sort(
-        (a, b) =>
-          (b.titleScore || 0) -
-          (a.titleScore || 0)
-      )
-      .slice(0, 18);
+  let sources = [];
 
-  const results = [];
+  if (
+    project.toLowerCase() === "gta5rp"
+  ) {
+    sources =
+      await discoverGtaServer(
+        normalizedServer,
+        normalizedMode
+      );
+  }
 
-  await Promise.all(
-    candidates.map(
-      async (item) => {
-        try {
-          const html =
-            await fetchHtml(
-              item.url
-            );
-
-          const text =
-            htmlToText(html);
-
-          if (text.length < 100) {
-            return;
-          }
-
-          /*
-           * Если пользователь указал статью,
-           * пытаемся найти именно её.
-           */
-          let articleText = '';
-
-          if (
-            mode === 'laws' &&
-            articleNumbers.length
-          ) {
-            articleText =
-              extractArticleContext(
-                text,
-                articleNumbers
-              );
-          }
-
-          const relevantText =
-            articleText ||
-            text;
-
-          const score =
-            scoreText(
-              relevantText,
-              question,
-              item.title
-            ) +
-            (item.titleScore || 0);
-
-          results.push({
-            ...item,
-            text,
-            relevantText,
-            score,
-            articleFound:
-              Boolean(articleText),
-            gamePenalty:
-              extractGamePenalty(
-                relevantText
-              ),
-          });
-        } catch (error) {
-          results.push({
-            ...item,
-            text: '',
-            relevantText: '',
-            score:
-              (item.titleScore || 0) - 100,
-            articleFound: false,
-            gamePenalty: [],
-            error:
-              String(
-                error?.message ||
-                error
-              ),
-          });
-        }
-      }
-    )
-  );
-
-  /*
-   * Если искали конкретную статью,
-   * документы с найденной статьёй должны идти первыми.
-   */
-  results.sort(
-    (a, b) => {
-      if (
-        a.articleFound &&
-        !b.articleFound
-      ) {
-        return -1;
-      }
-
-      if (
-        !a.articleFound &&
-        b.articleFound
-      ) {
-        return 1;
-      }
-
-      return b.score - a.score;
-    }
-  );
-
-  const chosen =
-    results
-      .filter(
-        (item) => item.text
-      )
-      .slice(0, MAX_RESULTS);
-
-  if (!chosen.length) {
+  // Пока другие проекты не имеют подключённых
+  // официальных баз. Не выдумываем источники.
+  if (sources.length === 0) {
     return {
-      context: '',
       sources: [],
-      meta: results.map(
-        (item) => ({
-          title: item.title,
-          url: item.url,
-          score: item.score,
-          chars:
-            item.text?.length || 0,
-          error:
-            item.error || null,
-        })
-      ),
-      note:
-        discovered.note ||
-        'Официальные страницы найдены, но получить их содержимое не удалось.',
+      context: "",
+      articleNumbers
     };
   }
 
-  /*
-   * Для статьи передаём AI именно релевантный фрагмент,
-   * а не всю страницу.
-   */
-  const context =
-    chosen
-      .map(
-        (item, index) => {
-          const text =
-            item.relevantText ||
-            item.text;
+  // Не даём сотням страниц попасть в Groq.
+  sources = sources.slice(
+    0,
+    MAX_CANDIDATES
+  );
 
-          return [
-            `[ИСТОЧНИК ${index + 1}] ${item.title}`,
-            `URL: ${item.url}`,
-            `СЕРВЕР: ${normalizeServer(server)}`,
-            `РАЗДЕЛ: ${
-              mode === 'laws'
-                ? 'Законодательная база'
-                : 'Игровые правила'
-            }`,
-            '',
-            text.slice(
-              0,
-              12000
-            ),
-          ].join('\n');
-        }
-      )
-      .join(
-        '\n\n============================\n\n'
+  const prepared = [];
+
+  for (const source of sources) {
+    const item =
+      await prepareSource(
+        source,
+        question,
+        normalizedMode,
+        articleNumbers
       );
 
-  return {
-    context,
-    sources:
-      chosen.map(
-        (item) =>
-          item.url
-      ),
-    meta:
-      results.map(
-        (item) => ({
-          title:
-            item.title,
-          url:
-            item.url,
-          score:
-            item.score,
-          chars:
-            item.text?.length ||
-            0,
-          articleFound:
-            Boolean(
-              item.articleFound
-            ),
-          gamePenalty:
-            item.gamePenalty ||
-            [],
-          error:
-            item.error ||
-            null,
-        })
-      ),
-    note:
-      discovered.note ||
-      null,
-  };
-}
-
-/*
- * ============================================================
- * RATE LIMIT
- * ============================================================
- */
-
-function rateLimit(req) {
-  const ip =
-    req.headers.get(
-      'CF-Connecting-IP'
-    ) ||
-    req.headers.get(
-      'x-forwarded-for'
-    ) ||
-    'unknown';
-
-  const now =
-    Date.now();
-
-  const hit =
-    rateMap.get(ip);
-
-  if (
-    !hit ||
-    now - hit.at > 60_000
-  ) {
-    rateMap.set(ip, {
-      at: now,
-      count: 1,
-    });
-
-    return true;
+    if (item) {
+      prepared.push(item);
+    }
   }
 
-  hit.count++;
+  prepared.sort(
+    (a, b) => b.score - a.score
+  );
 
-  return hit.count <= 12;
-}
+  const selected =
+    prepared.slice(
+      0,
+      MAX_RESULTS
+    );
 
-/*
- * ============================================================
- * AI
- * ============================================================
- */
+  // Контекст ещё раз ограничиваем.
+  const chunks = [];
 
-async function ask(req, env) {
-  if (!rateLimit(req)) {
-    return json(
-      {
-        error:
-          'Слишком много запросов. Подожди около минуты.',
-      },
-      429
+  for (const item of selected) {
+    let chunk =
+      item.context || "";
+
+    if (chunk.length > MAX_SOURCE_CHARS) {
+      chunk =
+        chunk.slice(
+          0,
+          MAX_SOURCE_CHARS
+        );
+    }
+
+    chunks.push(
+      [
+        `ИСТОЧНИК: ${item.title}`,
+        `URL: ${item.url}`,
+        `ТЕКСТ:`,
+        chunk
+      ].join("\n")
     );
   }
 
+  return {
+    sources: selected,
+    context: chunks.join(
+      "\n\n---\n\n"
+    ),
+    articleNumbers
+  };
+}
+
+
+// ============================================================
+// Системный промпт
+// ============================================================
+
+function buildSystemPrompt(
+  mode
+) {
+  if (mode === "rules") {
+    return `
+Ты — справочный помощник GTA5RP.
+
+Работай ТОЛЬКО по переданным официальным источникам.
+
+Главные правила:
+1. Не выдумывай правила.
+2. Не выдумывай наказания.
+3. Не выдумывай номера пунктов.
+4. Не используй свои знания вместо источника.
+5. Если в источнике есть игровое время в двойных скобках, например ((80–120 минут)), копируй его ТОЧНО.
+6. Никогда самостоятельно не пересчитывай годы, дни или другие сроки в минуты.
+7. Если игрового времени в источнике нет — так и скажи.
+8. Если источник не позволяет уверенно ответить — скажи, что в найденном официальном источнике этого недостаточно.
+9. Отвечай по-русски.
+10. Не придумывай информацию ради красивого ответа.
+
+Для вопросов DB, DM, MG, PG и других терминов:
+- сначала найди соответствующий термин в переданном тексте;
+- объясни его по источнику;
+- не добавляй отсутствующие требования.
+
+Формат:
+- Термин / правило
+- Что означает
+- Что запрещено / разрешено
+- Наказание, если оно есть в источнике
+- Источник
+`;
+  }
+
+  return `
+Ты — справочный помощник по законодательной базе GTA5RP.
+
+Работай ТОЛЬКО по переданным официальным источникам.
+
+Главные правила:
+1. Не выдумывай статьи.
+2. Не выдумывай наказания.
+3. Не выдумывай срок наказания.
+4. Не используй старую редакцию, если передан актуальный документ.
+5. Если в источнике есть игровое время в двойных скобках, например ((80–120 минут)), копируй его ТОЧНО.
+6. Никогда не пересчитывай годы/дни в минуты самостоятельно.
+7. Если игрового эквивалента нет — не придумывай его.
+8. Если по вопросу невозможно уверенно определить статью — так и скажи.
+9. Отвечай по-русски.
+10. Источник важнее твоих общих знаний.
+
+Для вопроса с номером статьи:
+- найди именно эту статью;
+- покажи номер и название;
+- кратко объясни содержание;
+- укажи наказание точно по источнику;
+- укажи игровой эквивалент только если он есть.
+
+Для ситуационного вопроса:
+- определи подходящую норму только на основании переданного текста;
+- не придумывай статью, если её нет в источнике.
+
+Формат:
+Статья X.X. Название
+
+Кратко:
+...
+
+Наказание:
+...
+
+Игровой эквивалент:
+...
+
+Основание:
+...
+`;
+}
+
+
+// ============================================================
+// Запрос к Groq
+// ============================================================
+
+async function askGroq(
+  env,
+  {
+    project,
+    server,
+    mode,
+    question,
+    context
+  }
+) {
+  if (!env.LLM_API_KEY) {
+    throw new Error(
+      "LLM_API_KEY не настроен"
+    );
+  }
+
+  const system =
+    buildSystemPrompt(mode);
+
+  const userMessage = `
+Проект: ${project}
+Сервер: ${server}
+Режим: ${
+    mode === "rules"
+      ? "Игровые правила"
+      : "Законодательная база"
+  }
+
+Вопрос пользователя:
+${question}
+
+Официальный найденный контекст:
+${context}
+`;
+
+  const response = await fetch(
+    `${env.LLM_BASE}/chat/completions`,
+    {
+      method: "POST",
+
+      headers: {
+        "Content-Type":
+          "application/json",
+        "Authorization":
+          `Bearer ${env.LLM_API_KEY}`
+      },
+
+      body: JSON.stringify({
+        model:
+          env.LLM_MODEL ||
+          "openai/gpt-oss-120b",
+
+        messages: [
+          {
+            role: "system",
+            content: system
+          },
+          {
+            role: "user",
+            content: userMessage
+          }
+        ],
+
+        temperature: 0.1,
+
+        max_tokens:
+          MAX_OUTPUT_TOKENS
+      })
+    }
+  );
+
+  const raw =
+    await response.text();
+
+  if (!response.ok) {
+    throw new Error(
+      `Groq ${response.status}: ${raw}`
+    );
+  }
+
+  let data;
+
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    throw new Error(
+      "Groq вернул некорректный JSON"
+    );
+  }
+
+  const answer =
+    data?.choices?.[0]?.message?.content;
+
+  if (!answer) {
+    throw new Error(
+      "Groq не вернул ответ"
+    );
+  }
+
+  return answer.trim();
+}
+
+
+// ============================================================
+// HTTP helpers
+// ============================================================
+
+function jsonResponse(
+  data,
+  status = 200
+) {
+  return new Response(
+    JSON.stringify(data),
+    {
+      status,
+      headers: {
+        "Content-Type":
+          "application/json; charset=utf-8",
+        "Access-Control-Allow-Origin":
+          "*",
+        "Access-Control-Allow-Headers":
+          "Content-Type, Authorization",
+        "Access-Control-Allow-Methods":
+          "GET, POST, OPTIONS"
+      }
+    }
+  );
+}
+
+
+function corsResponse(
+  response
+) {
+  const headers =
+    new Headers(
+      response.headers
+    );
+
+  headers.set(
+    "Access-Control-Allow-Origin",
+    "*"
+  );
+
+  headers.set(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization"
+  );
+
+  headers.set(
+    "Access-Control-Allow-Methods",
+    "GET, POST, OPTIONS"
+  );
+
+  return new Response(
+    response.body,
+    {
+      status: response.status,
+      headers
+    }
+  );
+}
+
+
+// ============================================================
+// API
+// ============================================================
+
+async function handleAsk(
+  request,
+  env
+) {
   let body;
 
   try {
     body =
-      await req.json();
+      await request.json();
   } catch {
-    return json(
+    return jsonResponse(
       {
+        ok: false,
         error:
-          'Неверный JSON.',
+          "Некорректный JSON"
       },
       400
     );
   }
 
   const project =
-    normalizeProject(
-      body.project ||
-      'GTA5RP'
-    );
-
-  const server =
     String(
-      body.server ||
-      ''
+      body.project ||
+      "GTA5RP"
     ).trim();
 
+  const server =
+    normalizeServer(
+      body.server || ""
+    );
+
   const mode =
-    body.mode === 'laws'
-      ? 'laws'
-      : 'rules';
+    normalizeMode(
+      body.mode
+    );
 
   const question =
     String(
-      body.question ||
-      ''
+      body.question || ""
     ).trim();
 
-  if (!CATALOG[project]) {
-    return json(
-      {
-        error:
-          'Неизвестный проект.',
-      },
-      400
-    );
-  }
-
   if (!server) {
-    return json(
+    return jsonResponse(
       {
+        ok: false,
         error:
-          'Не выбран сервер.',
+          "Не выбран сервер"
       },
       400
     );
   }
 
   if (!question) {
-    return json(
+    return jsonResponse(
       {
+        ok: false,
         error:
-          'Напиши вопрос.',
-      },
-      400
-    );
-  }
-
-  if (
-    question.length >
-    MAX_QUESTION
-  ) {
-    return json(
-      {
-        error:
-          `Вопрос слишком длинный. Максимум ${MAX_QUESTION} символов.`,
+          "Введите вопрос"
       },
       400
     );
@@ -1672,373 +1418,218 @@ async function ask(req, env) {
 
   try {
     const gathered =
-      await gatherContext(
+      await gatherContext({
         project,
         server,
         mode,
         question
-      );
+      });
 
-    const {
-      context,
-      sources,
-      meta,
-      note,
-    } = gathered;
+    if (!gathered.context) {
+      return jsonResponse({
+        ok: true,
 
-    if (!context) {
-      return json({
         answer:
-          note ||
-          'Не удалось найти подходящие официальные страницы.',
+          "Не удалось найти подходящий официальный источник на форуме для выбранного сервера.",
+
         sources: [],
-        meta,
+
+        server,
+        mode
       });
     }
 
-    /*
-     * Если ключ отсутствует, всё равно возвращаем
-     * найденный официальный текст.
-     */
-    if (!env.LLM_API_KEY) {
-      return json({
-        answer:
-          'LLM_API_KEY ещё не подключён.\n\n' +
-          'Найденный официальный материал:\n\n' +
-          context.slice(
-            0,
-            12000
-          ),
-        sources,
-        meta,
-      });
-    }
-
-    /*
-     * ========================================================
-     * SYSTEM PROMPT
-     * ========================================================
-     */
-
-    const sectionName =
-      mode === 'laws'
-        ? 'Законодательная база'
-        : 'Игровые правила';
-
-    const system = [
-      'Ты GTA 5 RP Legal Helper.',
-      'Отвечай только на русском языке.',
-      '',
-      `Проект: ${project}.`,
-      `Сервер: ${normalizeServer(server)}.`,
-      `Раздел: ${sectionName}.`,
-      '',
-      'ТЫ НЕ ИМЕЕШЬ ПРАВА ПРИДУМЫВАТЬ НОРМЫ.',
-      'Используй только предоставленный официальный контекст.',
-      '',
-      'ОСОБО ВАЖНО:',
-      '1. Не выдумывай статьи.',
-      '2. Не выдумывай пункты.',
-      '3. Не выдумывай наказания.',
-      '4. Не пересчитывай годы в минуты самостоятельно.',
-      '5. Если на форуме рядом с наказанием есть ((минуты)), бери именно это значение.',
-      '6. Если на форуме написано ((дни)), ((часы)) или другой игровой эквивалент — показывай именно его.',
-      '7. Если игрового эквивалента в источнике нет — НЕ придумывай его.',
-      '8. Не используй старую редакцию, если в контексте есть более новая редакция того же документа.',
-      '9. Архивные документы не должны перебивать действующий документ.',
-      '10. Если пользователь написал номер статьи, обязательно укажи номер статьи.',
-      '11. Если вопрос задан бытовым языком, самостоятельно сопоставь его с найденной нормой.',
-      '12. Если точного ответа в официальном контексте нет — честно скажи, что точного основания не найдено.',
-      '',
-      'ФОРМАТ ДЛЯ ЗАКОНОДАТЕЛЬНОЙ БАЗЫ:',
-      '',
-      '⚖️ Статья X.X — название',
-      '',
-      '📖 Суть:',
-      'Кратко и понятно объясни, что запрещает/регулирует статья.',
-      '',
-      '🔒 Наказание:',
-      'Укажи наказание так, как оно написано в источнике.',
-      '',
-      '🎮 Игровой срок:',
-      'Покажи ((минуты/дни/часы)), только если они реально указаны в источнике.',
-      '',
-      '📚 Основание:',
-      'Название кодекса/закона и статья.',
-      '',
-      'Если в статье несколько частей — разделяй их.',
-      'Если есть альтернативные наказания — обязательно укажи их.',
-      '',
-      'ФОРМАТ ДЛЯ ИГРОВЫХ ПРАВИЛ:',
-      '',
-      '🎮 Термин/правило',
-      '',
-      '📖 Что означает:',
-      'Краткое понятное объяснение.',
-      '',
-      '⚠️ Нарушение:',
-      'Что именно запрещено.',
-      '',
-      '🔒 Наказание:',
-      'Только наказание из официального источника.',
-      '',
-      '📚 Основание:',
-      'Номер пункта и название правил, если они есть.',
-      '',
-      'Не пиши длинную воду.',
-      'Сначала дай прямой ответ пользователю, затем основание.',
-      '',
-      'КОНТЕКСТ ОФИЦИАЛЬНОГО ФОРУМА:',
-      context,
-    ].join('\n');
-
-    const base =
-      (
-        env.LLM_BASE ||
-        'https://api.groq.com/openai/v1'
-      ).replace(
-        /\/$/,
-        ''
-      );
-
-    const model =
-      env.LLM_MODEL ||
-      'openai/gpt-oss-120b';
-
-    const llm =
-      await fetch(
-        `${base}/chat/completions`,
+    const answer =
+      await askGroq(
+        env,
         {
-          method: 'POST',
-          headers: {
-            'content-type':
-              'application/json',
-            authorization:
-              `Bearer ${env.LLM_API_KEY}`,
-          },
-          body:
-            JSON.stringify({
-              model,
-              temperature: 0.1,
-              max_tokens: 1600,
-              messages: [
-                {
-                  role: 'system',
-                  content:
-                    system,
-                },
-                {
-                  role: 'user',
-                  content:
-                    question,
-                },
-              ],
-            }),
+          project,
+          server,
+          mode,
+          question,
+          context:
+            gathered.context
         }
       );
 
-    if (!llm.ok) {
-      return json(
-        {
-          error:
-            'Ошибка AI-сервера.',
-          detail:
-            (
-              await llm.text()
-            ).slice(
-              0,
-              700
-            ),
-        },
-        502
-      );
-    }
+    return jsonResponse({
+      ok: true,
 
-    const data =
-      await llm.json();
-
-    const answer =
-      data.choices?.[0]?.message?.content ||
-      'AI не вернул ответ.';
-
-    return json({
       answer,
-      sources,
-      meta,
+
+      server,
+
+      mode,
+
+      sources:
+        gathered.sources.map(
+          source => ({
+            title:
+              source.title,
+            url:
+              source.url
+          })
+        )
     });
   } catch (error) {
-    return json(
+    return jsonResponse(
       {
+        ok: false,
+
         error:
-          'Ошибка чтения официального форума.',
-        detail:
-          String(
-            error?.message ||
-            error
-          ).slice(
-            0,
-            1000
-          ),
+          error instanceof Error
+            ? error.message
+            : String(error)
       },
-      502
+      500
     );
   }
 }
 
-/*
- * ============================================================
- * HTTP
- * ============================================================
- */
+
+// ============================================================
+// Worker
+// ============================================================
 
 export default {
   async fetch(
-    req,
+    request,
     env
   ) {
-    const url =
-      new URL(req.url);
-
     if (
-      req.method ===
-      'OPTIONS'
+      request.method ===
+      "OPTIONS"
     ) {
       return new Response(
-        '',
+        null,
         {
           status: 204,
-          headers: cors,
+          headers: {
+            "Access-Control-Allow-Origin":
+              "*",
+            "Access-Control-Allow-Headers":
+              "Content-Type, Authorization",
+            "Access-Control-Allow-Methods":
+              "GET, POST, OPTIONS"
+          }
         }
       );
     }
 
-    /*
-     * ========================================================
-     * CATALOG
-     * ========================================================
-     */
+    const url =
+      new URL(
+        request.url
+      );
+
+    // --------------------------------------------------------
+    // Главная
+    // --------------------------------------------------------
 
     if (
-      url.pathname ===
-        '/api/catalog' &&
-      req.method ===
-        'GET'
+      url.pathname === "/" &&
+      request.method === "GET"
     ) {
-      return json({
+      return jsonResponse({
+        ok: true,
+
+        name:
+          "GTA5RP Legal Helper API",
+
         version:
           env.APP_VERSION ||
-          APP_VERSION,
-        projects:
-          CATALOG,
-      });
-    }
+          "3.4.0",
 
-    /*
-     * ========================================================
-     * HEALTH
-     * ========================================================
-     */
-
-    if (
-      url.pathname ===
-        '/api/health' &&
-      req.method ===
-        'GET'
-    ) {
-      return json({
-        service:
-          'GTA5RP Legal Helper API',
         status:
-          'ok',
-        mode:
-          'live-forum',
-        database:
-          'none',
-        version:
-          env.APP_VERSION ||
-          APP_VERSION,
-        llmConfigured:
-          Boolean(
-            env.LLM_API_KEY
-          ),
-        projects:
-          Object.keys(
-            CATALOG
-          ),
-        gta5rpServers:
-          CATALOG.GTA5RP.servers,
+          "online"
       });
     }
 
-    /*
-     * ========================================================
-     * VERSION
-     * ========================================================
-     */
+
+    // --------------------------------------------------------
+    // Каталог
+    // --------------------------------------------------------
 
     if (
       url.pathname ===
-        '/api/version' &&
-      req.method ===
-        'GET'
+        "/api/catalog" &&
+      request.method === "GET"
     ) {
-      return json({
+      return jsonResponse({
+        ok: true,
+        catalog: CATALOG
+      });
+    }
+
+
+    // --------------------------------------------------------
+    // Health
+    // --------------------------------------------------------
+
+    if (
+      url.pathname ===
+        "/api/health" &&
+      request.method === "GET"
+    ) {
+      return jsonResponse({
+        ok: true,
+        status: "healthy",
         version:
           env.APP_VERSION ||
-          APP_VERSION,
-        downloadUrl:
+          "3.4.0"
+      });
+    }
+
+
+    // --------------------------------------------------------
+    // Версия
+    // --------------------------------------------------------
+
+    if (
+      url.pathname ===
+        "/api/version" &&
+      request.method === "GET"
+    ) {
+      return jsonResponse({
+        ok: true,
+
+        version:
+          env.APP_VERSION ||
+          "3.4.0",
+
+        download_url:
           env.DOWNLOAD_URL ||
-          DOWNLOAD_URL,
-        minClientVersion:
-          env.APP_VERSION ||
-          APP_VERSION,
+          ""
       });
     }
 
-    /*
-     * ========================================================
-     * ASK
-     * ========================================================
-     */
+
+    // --------------------------------------------------------
+    // Ask
+    // --------------------------------------------------------
 
     if (
       url.pathname ===
-        '/api/ask' &&
-      req.method ===
-        'POST'
+        "/api/ask" &&
+      request.method === "POST"
     ) {
-      return ask(
-        req,
+      return handleAsk(
+        request,
         env
       );
     }
 
-    /*
-     * ========================================================
-     * ROOT
-     * ========================================================
-     */
 
-    if (
-      url.pathname === '/' &&
-      req.method === 'GET'
-    ) {
-      return json({
-        service:
-          'GTA5RP Legal Helper API',
-        status:
-          'ok',
-        mode:
-          'live-forum',
-      });
-    }
+    // --------------------------------------------------------
+    // 404
+    // --------------------------------------------------------
 
-    return json(
+    return jsonResponse(
       {
+        ok: false,
         error:
-          'not found',
+          "Endpoint not found"
       },
       404
     );
-  },
+  }
 };
